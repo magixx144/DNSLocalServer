@@ -34,6 +34,7 @@
 #define IN_ASCII 0x4E49
 #define A_ASCII 0x41
 #define MX_ASCII 0x584D
+#define CNAME_ASCII 0x4E43
 
 
 

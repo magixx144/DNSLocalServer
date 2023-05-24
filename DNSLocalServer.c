@@ -75,8 +75,8 @@ char *DNS_request_parse(char *request)
     ptr += 2;
     query[0].qclass = htons(*(unsigned short *)ptr);
     ptr += 2;
-    //printf("query %s\n", &query[0].name);
-    // printf("%X\n",query[0].qtype);
+    // printf("query %s\n", &query[0].name);
+    //  printf("%X\n",query[0].qtype);
     return &query[0].name;
 }
 int get_answerNum(char *path, char *domain)
@@ -140,6 +140,9 @@ unsigned short DNS_table_init(struct DNS_RR *answer, char *path, char *domain, u
         int query_state = 0;      // 表明查询状态，查到为1
         int query_name_state = 0; // 查name
         int query_type_state = 0; // 查type
+        int query_type_A = 0;     // 查A返回address
+        int query_type_CNAME = 0; // 查CNAME返回cname
+        int query_type_MX = 0;    // 查MX返回cname
         data_list[i] = (char *)malloc(sizeof(char) * 200);
         if (fgets(data_list[i], 1000, file) == NULL)
         { // 如果错误或者读到结束符，就返回NULL；
@@ -174,10 +177,18 @@ unsigned short DNS_table_init(struct DNS_RR *answer, char *path, char *domain, u
             if (rr->type == A_ASCII)
             { // 0x41对应type A
                 rr->type = TYPE_A;
+                query_type_A = 1;
             }
             else if (rr->type == MX_ASCII)
             { // 0x584D对应type MX
                 rr->type = TYPE_MX;
+                query_type_MX = 1;
+            }
+            else if (rr->type == CNAME_ASCII)
+            { // cname只取前两位
+                rr->type = TYPE_CNAME;
+                query_type_CNAME = 1;
+                query_type_state=1;
             }
             if (rr->type == type)
             { // type是否对应
@@ -191,24 +202,24 @@ unsigned short DNS_table_init(struct DNS_RR *answer, char *path, char *domain, u
             strncpy(rr->rdata, p, MESSAGE_LEN);
             // printf("%s\n",rr->rdata);
 
-            if (query_name_state)
+            if (query_name_state&&query_type_state)
             { // 查询到，break
                 // answer的name段
                 char *ptr = &answer[answerNum].name; // ptr指向name,&不确定
                 const char s[2] = ".";
-                int offset=0;
+                int offset = 0;
                 char *rrname_dup = strdup(rr->name); // 用于分割
                 char *token = strtok(rrname_dup, s);
                 while (token != NULL)
                 {
                     size_t len = strlen(token);
-                    *(ptr+offset) = len;
+                    *(ptr + offset) = len;
                     offset++;
-                    strncpy(ptr+offset, token, len+1);
+                    strncpy(ptr + offset, token, len + 1);
                     offset += len;
                     token = strtok(NULL, s);
                 }
-                *(ptr+offset)='\0';
+                *(ptr + offset) = '\0';
                 free(rrname_dup);
                 // type字段
                 answer[answerNum].type = htons(rr->type);
@@ -217,12 +228,36 @@ unsigned short DNS_table_init(struct DNS_RR *answer, char *path, char *domain, u
                 // ttl字段
                 answer[answerNum].ttl = htons(rr->ttl);
                 // data length字段
-                answer[answerNum].data_len = htons((unsigned short)4);
-                // address字段
-                struct in_addr netip = {0};
-                inet_aton(rr->rdata, &netip);
-                memcpy(&answer[answerNum].rdata, (char *)&netip.s_addr, sizeof((char *)&netip.s_addr));
-                answerNum++;
+
+                if (rr->type == TYPE_A)
+                {
+                    answer[answerNum].data_len = htons((unsigned short)4);
+                    // address字段
+                    struct in_addr netip = {0};
+                    inet_aton(rr->rdata, &netip);
+                    memcpy(&answer[answerNum].rdata, (char *)&netip.s_addr, sizeof((char *)&netip.s_addr));
+                    answerNum++;
+                }
+                else if (rr->type == TYPE_CNAME)
+                {
+                    char *ptr = rr->rdata; // ptr指向name
+                    const char s[2] = ".";
+                    char *data_dup = strdup(rr->rdata); // 用于分割
+                    char *token = strtok(data_dup, s);
+                    while (token != NULL)
+                    {
+                        size_t len = strlen(token);
+                        *ptr = len;
+                        ptr++;
+                        strncpy(ptr, token, len + 1);
+                        ptr += len;
+                        token = strtok(NULL, s);
+                    }
+                    free(data_dup);
+                    answer[answerNum].data_len = htons((unsigned short)strlen(rr->rdata) + 2);
+                    memcpy(&answer[answerNum].rdata, rr->rdata, strlen(rr->rdata));
+                    answerNum++;
+                }
             }
         }
     }
@@ -299,23 +334,22 @@ int DNS_build(struct DNS_Header *header, struct DNS_Query *query, struct DNS_RR 
 
     int offset = 0;
     memset(response, 0x00, MESSAGE_LEN);
-    
+
     memcpy(response + offset, header, sizeof(struct DNS_Header));
     offset += sizeof(struct DNS_Header);
-    
+
     memcpy(response + offset, query->name, query->length);
     offset += query->length;
-    
+
     memcpy(response + offset, &query->qtype, sizeof(query->qtype));
     offset += sizeof(query->qtype);
-    memcpy(response+offset, &query->qclass, sizeof(query->qclass));
+    memcpy(response + offset, &query->qclass, sizeof(query->qclass));
     offset += sizeof(query->qclass);
-    
 
     int num = ntohs(header->answerNum);
     for (int i = 0; i < num; i++)
     {
-        memcpy(response + offset, &answer[i].name, strlen(&answer[i].name)+1 );
+        memcpy(response + offset, &answer[i].name, strlen(&answer[i].name) + 1);
         offset += (strlen(&answer[i].name) + 1);
         memcpy(response + offset, &answer[i].type, sizeof(answer[i].type));
         offset += sizeof(answer[i].type);
@@ -360,8 +394,10 @@ int DNS_udp()
         int m = recvfrom(sockfd, request, sizeof(request), 0, (struct sockaddr *)&cli, &n);
         printf("receive len = %d\n", m);
         char *domain = DNS_request_parse(request);
+
         // printf("%s\n",domain);
-        unsigned short type = TYPE_A; // 暂定
+        unsigned short type = *(unsigned short *)(request + strlen(domain)+14); // 12为头长,+2
+        type=htons(type);
         int answerNum = get_answerNum(path, domain);
 
         struct DNS_RR *answer = calloc(answerNum, sizeof(struct DNS_RR));
@@ -370,12 +406,11 @@ int DNS_udp()
         struct DNS_Header header = {0};
         DNS_header_create(&header, domain, type);
 
-        struct DNS_Query *query = calloc(1,sizeof(struct DNS_Query));
+        struct DNS_Query *query = calloc(1, sizeof(struct DNS_Query));
         DNS_query_create(query, domain, type);
-        //printf("id %X\n",header.id);
+        // printf("id %X\n",header.id);
         char response[MESSAGE_LEN] = {0};
-        int offset=DNS_build(&header, query, answer, response);
-        
+        int offset = DNS_build(&header, query, answer, response);
 
         sendto(sockfd, response, offset, 0, (struct sockaddr *)&cli, n);
     }
