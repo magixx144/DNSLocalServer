@@ -61,13 +61,15 @@ struct DNS_RR {
     char rdata[MESSAGE_LEN];
 };
 
+
+
 static void dns_parse_name(unsigned char* chunk, unsigned char *ptr, char *out, int *len);
 static int is_pointer(int in);
 char *DNS_request_parse(char *request);
-unsigned short DNS_table_init(struct DNS_RR *answer,char *path,char *domain,unsigned short type);
+unsigned short DNS_table_init(struct DNS_RR *answer,char *path,char *domain,unsigned short type,unsigned short *add);
 int DNS_udp();
 int DNS_build(struct DNS_Header *header,struct DNS_Query *query,struct DNS_RR *answer,char *response);
 int DNS_query_create(struct DNS_Query *query,char *domain,unsigned short type);
-int DNS_header_create(struct DNS_Header *header,char *domain,unsigned short type);
+int DNS_header_create(struct DNS_Header *header,char *domain,unsigned short type,unsigned short add);
 char *response_build(struct DNS_Header *header,struct DNS_Query *query,struct DNS_RR *answer,char *response);
-int get_answerNum(char *path,char *domain);
+int get_answerNum(char *path,char *domain, unsigned short type);
