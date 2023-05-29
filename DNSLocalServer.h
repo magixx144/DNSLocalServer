@@ -26,7 +26,12 @@
 #define MESSAGE_LEN 1024
 #define DNS_SERVER_PORT 9946
 #define DNS_SERVER_IP "8.8.8.8"
-#define LOCAL_DNS_ADDRESS "127.0.0.1"
+#define LOCAL_DNS_ADDRESS "127.0.0.2"
+#define DNS_ROOT_ADDRESS "127.0.0.3"
+#define DNS_COM_ADDRESS "127.0.0.4"
+#define DNS_CN_ADDRESS "127.0.0.5"
+#define DNS_ORG_ADDRESS "127.0.0.6"
+#define DNS_US_ADDRESS "127.0.0.7"
 #define NAME_LEN 1024
 #define IP_LEN 20
 #define NET_IP_LEN 4
@@ -66,10 +71,13 @@ struct DNS_RR {
 static void dns_parse_name(unsigned char* chunk, unsigned char *ptr, char *out, int *len);
 static int is_pointer(int in);
 char *DNS_request_parse(char *request);
-unsigned short DNS_table_init(struct DNS_RR *answer,char *path,char *domain,unsigned short type,unsigned short *add);
+int DNS_table_init(struct DNS_RR *answer,char *path,char *domain,unsigned short type,unsigned short *add);
 int DNS_udp();
 int DNS_build(struct DNS_Header *header,struct DNS_Query *query,struct DNS_RR *answer,char *response);
 int DNS_query_create(struct DNS_Query *query,char *domain,unsigned short type);
 int DNS_header_create(struct DNS_Header *header,char *domain,unsigned short type,unsigned short add);
 char *response_build(struct DNS_Header *header,struct DNS_Query *query,struct DNS_RR *answer,char *response);
 int get_answerNum(char *path,char *domain, unsigned short type);
+char *DNS_tcp_root(char *domain, unsigned short type,int *offset,char *response,char *ip,char *next_response);
+int DNS_root_header_create(struct DNS_Header *header, char *domain);
+int DNS_root_build(struct DNS_Header *header, struct DNS_Query *query, char *request);
