@@ -1,3 +1,5 @@
+www.baidu.cn 86400 IN MX gg.bet.com
+www.baidu.cn 86400 IN MX www.baidu.cc
 mail.ddd.edu.cn 86400 IN CNAME www.a.shifen.com
 mail.ddd.edu.cn 86400 IN CNAME www.bilibili.com
 yzy.edu.cn 86400 IN CNAME www.baidu.com
@@ -7,3 +9,6 @@ wyx.edu.cn 86400 IN A 192.168.12.11
 mail.aaa.edu.cn 86400 IN A 192.132.11.2
 yzy.edu.cn 86400 IN A 192.168.88.12
 www.baidu.com 86400 IN A 192.168.88.12
+www.csdn.cn 86400 IN A 132.168.18.77
+www.baidu.cn 86400 IN CNAME www.baidu.cc
+www.baidu.cn 86400 IN A 192.168.88.15

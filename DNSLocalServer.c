@@ -453,7 +453,7 @@ int DNS_udp()
     ser.sin_family = AF_INET;
     ser.sin_port = htons(9945);
     ser.sin_addr.s_addr = inet_addr(LOCAL_DNS_ADDRESS);
-    //ser.sin_addr.s_addr =htonl(INADDR_ANY);
+    // ser.sin_addr.s_addr =htonl(INADDR_ANY);
 
     int ret = bind(sockfd, (struct sockaddr *)&ser, sizeof(ser));
     if (ret < 0)
@@ -492,15 +492,16 @@ int DNS_udp()
             int offset = DNS_build(&header, query, answer, response);
 
             sendto(sockfd, response, offset, 0, (struct sockaddr *)&cli, n);
-        }else{
-            int offset=0;
-            char root_response[MESSAGE_LEN]={0};
-            char ip[IP_LEN]={0};
-            char next_response[MESSAGE_LEN]={0};
-            DNS_tcp_root(domain,type,&offset,root_response,ip,next_response);
-            int sendlen=ntohs(*(unsigned short *)next_response);//解析了报文长度，即tcp的data length
-            sendto(sockfd,next_response+2,sendlen,0,(struct sockaddr *)&cli, n);//+2，跳过data length(udp不需要)
-
+        }
+        else
+        {
+            int offset = 0;
+            char root_response[MESSAGE_LEN] = {0};
+            char ip[IP_LEN] = {0};
+            char next_response[MESSAGE_LEN] = {0};
+            DNS_tcp_root(domain, type, &offset, root_response, ip, next_response);
+            int sendlen = ntohs(*(unsigned short *)next_response);                     // 解析了报文长度，即tcp的data length
+            sendto(sockfd, next_response + 2, sendlen, 0, (struct sockaddr *)&cli, n); //+2，跳过data length(udp不需要)
         }
     }
 
@@ -508,7 +509,8 @@ int DNS_udp()
 
     return 0;
 }
-int tcp_socket_init(char *ip,char *request,int offset,char *response){  //这里request向次级域名服务器发起查询，response为次级域名的回答
+int tcp_socket_init(char *ip, char *request, int offset, char *response)
+{ // 这里request向次级域名服务器发起查询，response为次级域名的回答
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in server_sockaddr; // 一般是储存地址和端口，用于信息的显示及存储作用
     server_sockaddr.sin_family = AF_INET;
@@ -520,15 +522,15 @@ int tcp_socket_init(char *ip,char *request,int offset,char *response){  //这里
         perror("connect");
         exit(1);
     }
-    send(sockfd,request,offset,0);
-    printf("send to %s bytes:%d\n", ip,offset);
+    send(sockfd, request, offset, 0);
+    printf("send to %s bytes:%d\n", ip, offset);
     int n = recv(sockfd, response, MESSAGE_LEN, 0);
     printf("receive bytes:%d\n", n);
-    //后续可加入缓存功能
+    // 后续可加入缓存功能
     return 0;
 }
 
-char *DNS_tcp_root(char *domain, unsigned short type,int *offset,char *response,char *ip,char *next_response)//返回的ip为需要去查询的ip地址
+char *DNS_tcp_root(char *domain, unsigned short type, int *offset, char *response, char *ip, char *next_response) // 返回的ip为需要去查询的ip地址
 {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0); // 若成功则返回一个sockfd (套接字描述符)
 
@@ -554,13 +556,14 @@ char *DNS_tcp_root(char *domain, unsigned short type,int *offset,char *response,
     int n = recv(sockfd, response, MESSAGE_LEN, 0);
     printf("receive bytes:%d\n", n);
     // 开始解析
-    DNS_root_parse_response(response,ip);
-    //得到ip后，向该ip发起查询
-    //char next_response[MESSAGE_LEN]={0};
-    tcp_socket_init(ip,request,*offset,next_response);//得到回应后，返回给client
+    DNS_root_parse_response(response, ip);
+    // 得到ip后，向该ip发起查询
+    // char next_response[MESSAGE_LEN]={0};
+    tcp_socket_init(ip, request, *offset, next_response); // 得到回应后，返回给client
+    append_to_cache(next_response);
     return response;
 }
-int DNS_root_header_create(struct DNS_Header *header, char *domain)//不止root,可适用于next-level
+int DNS_root_header_create(struct DNS_Header *header, char *domain) // 不止root,可适用于next-level
 {
     if (header == NULL)
     {
@@ -582,7 +585,7 @@ int DNS_root_header_create(struct DNS_Header *header, char *domain)//不止root,
     return 0;
 }
 
-int DNS_root_build(struct DNS_Header *header, struct DNS_Query *query, char *request)//不止root,可适用于next-level
+int DNS_root_build(struct DNS_Header *header, struct DNS_Query *query, char *request) // 不止root,可适用于next-level
 {
     if (header == NULL || query == NULL || request == NULL)
     {
@@ -604,54 +607,216 @@ int DNS_root_build(struct DNS_Header *header, struct DNS_Query *query, char *req
     memcpy(request + offset, &query->qclass, sizeof(unsigned short));
     offset += sizeof(unsigned short);
 
-    unsigned short data_len=htons((unsigned short)(offset-2));
+    unsigned short data_len = htons((unsigned short)(offset - 2));
 
     memcpy(request, &data_len, 2);
     return offset;
 }
-int DNS_root_parse_response(char *response,char *ip){   //这里返回的地址为应该查询的次级域名服务器
-    if(response==NULL){
+int DNS_root_parse_response(char *response, char *ip)
+{ // 这里返回的地址为应该查询的次级域名服务器
+    if (response == NULL)
+    {
         printf("no root response");
         return -1;
     }
-    char *ptr=response+2;//跳过报文长
-    //header
-    struct DNS_Header header={0};
-    header.id=ntohs(*(unsigned short *)ptr);ptr+=2;
-    header.tag=ntohs(*(unsigned short *)ptr);ptr+=2;
-    header.queryNum=ntohs(*(unsigned short *)ptr);ptr+=2;
-    header.answerNum=ntohs(*(unsigned short *)ptr);ptr+=2;
-    header.authorNum=ntohs(*(unsigned short *)ptr);ptr+=2;
-    header.addNum=ntohs(*(unsigned short *)ptr);ptr+=2;
+    char *ptr = response + 2; // 跳过报文长
+    // header
+    struct DNS_Header header = {0};
+    header.id = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.tag = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.queryNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.answerNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.authorNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.addNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
 
-    //query
-    struct DNS_Query *query=calloc(header.queryNum, sizeof(struct DNS_Query));
-    for(int i=0;i<header.queryNum;i++){
-        int len_q=0;
-        dns_parse_name(response+2,ptr,&query[i].name,&len_q);ptr+=(len_q+2);
+    // query
+    struct DNS_Query *query = calloc(header.queryNum, sizeof(struct DNS_Query));
+    for (int i = 0; i < header.queryNum; i++)
+    {
+        int len_q = 0;
+        dns_parse_name(response + 2, ptr, &query[i].name, &len_q);
+        ptr += (len_q + 2);
 
-        query[i].qtype=htons(*(unsigned short *)ptr);ptr+=2;
-        query[i].qclass=htons(*(unsigned short *)ptr);ptr+=2;
+        query[i].qtype = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        query[i].qclass = htons(*(unsigned short *)ptr);
+        ptr += 2;
     }
 
-    //answer
-    char cname[NAME_LEN],aname[NAME_LEN],net_ip[NET_IP_LEN];
-    struct DNS_RR *answer=calloc(header.answerNum, sizeof(struct DNS_RR));
-    int len_r=0;
-    for(int i=0;i<header.answerNum+header.addNum+header.authorNum;i++){
-        len_r=0;
-        dns_parse_name(response+2,ptr,&answer[i].name,&len_r);ptr+=(len_r+2);
-        answer[i].type=htons(*(unsigned short *)ptr);ptr+=2;
-        answer[i].rclass=htons(*(unsigned short *)ptr);ptr+=2;
-        answer[i].ttl=htons(*(unsigned int *)ptr);ptr+=4;
-        answer[i].data_len=htons(*(unsigned short *)ptr);ptr+=2;
-        len_r=0;
-        //bzero(ip, sizeof(ip));
+    // answer
+    char cname[NAME_LEN], aname[NAME_LEN], net_ip[NET_IP_LEN];
+    struct DNS_RR *answer = calloc(header.answerNum + header.addNum + header.authorNum, sizeof(struct DNS_RR));
+    int len_r = 0;
+    for (int i = 0; i < header.answerNum + header.addNum + header.authorNum; i++)
+    {
+        len_r = 0;
+        dns_parse_name(response + 2, ptr, &answer[i].name, &len_r);
+        ptr += (len_r + 2);
+        answer[i].type = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        answer[i].rclass = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        answer[i].ttl = htons(*(unsigned int *)ptr);
+        ptr += 4;
+        answer[i].data_len = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        len_r = 0;
+        // bzero(ip, sizeof(ip));
         memcpy(net_ip, ptr, 4);
-        dns_parse_name(response+2,ptr,&answer[i].rdata,&len_r);
-        ptr+=answer[i].data_len;
+        dns_parse_name(response + 2, ptr, &answer[i].rdata, &len_r);
+        ptr += answer[i].data_len;
         inet_ntop(AF_INET, net_ip, ip, sizeof(struct sockaddr));
-        printf("%s has an address of %s\n",&answer[i].name,ip);
+        printf("%s has an address of %s\n", &answer[i].name, ip);
+    }
+}
+void append_to_cache(char *response)
+{ // 实现缓存功能
+    if (response == NULL)
+    {
+        printf("No response");
+        return -1;
+    }
+    char *ptr = response + 2;
+    // header
+    struct DNS_Header header = {0};
+    header.id = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.tag = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.queryNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.answerNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.authorNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
+    header.addNum = ntohs(*(unsigned short *)ptr);
+    ptr += 2;
 
+    // query
+    struct DNS_Query *query = calloc(header.queryNum, sizeof(struct DNS_Query));
+    for (int i = 0; i < header.queryNum; i++)
+    {
+        int len_q = 0;
+        dns_parse_name(response, ptr, &query[i].name, &len_q);
+        ptr += (len_q + 2);
+
+        query[i].qtype = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        query[i].qclass = htons(*(unsigned short *)ptr);
+        ptr += 2;
+    }
+
+    // answer
+    char cname[NAME_LEN], aname[NAME_LEN], ip[IP_LEN], net_ip[NET_IP_LEN];
+    struct DNS_RR *answer = calloc(header.answerNum + header.addNum + header.authorNum, sizeof(struct DNS_RR));
+    int len_r = 0;
+    char split[] = " ";
+    char *ttl_cache = "86400 ";
+    char *class_cache = "IN ";
+    for (int i = 0; i < header.answerNum + header.addNum + header.authorNum; i++)
+    {
+        len_r = 0;
+        dns_parse_name(response, ptr, &answer[i].name, &len_r);
+        ptr += (len_r + 2);
+        answer[i].type = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        answer[i].rclass = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        answer[i].ttl = htons(*(unsigned int *)ptr);
+        ptr += 4;
+        answer[i].data_len = htons(*(unsigned short *)ptr);
+        ptr += 2;
+        len_r = 0;
+        // 判断type
+        if (answer[i].type == TYPE_CNAME)
+        {
+            FILE *file = fopen(path, "a+");
+            dns_parse_name(response, ptr, &answer[i].rdata, &len_r);
+            ptr += answer[i].data_len;
+            printf("%s has a cname of %s\n", &answer[i].name, &answer[i].rdata);
+            char *namedup = strdup(&answer[i].name);
+            char *datadup = strdup(&answer[i].rdata);
+            char *cache = strcat(namedup, split);
+            cache = strcat(cache, ttl_cache);
+            cache = strcat(cache, class_cache);
+            cache = strcat(cache, "CNAME ");
+            cache = strcat(cache, datadup);
+            cache = strcat(cache, "\n");
+            fputs(cache, file);
+            fclose(file);
+        }
+        else if (answer[i].type == TYPE_A)
+        {
+            FILE *file = fopen(path, "a+");
+            bzero(ip, sizeof(ip));
+            memcpy(net_ip, ptr, 4);
+            dns_parse_name(response, ptr, &answer[i].rdata, &len_r);
+            ptr += answer[i].data_len;
+            inet_ntop(AF_INET, net_ip, ip, sizeof(struct sockaddr));
+            printf("%s has an address of %s\n", &answer[i].name, ip);
+            char *namedup = strdup(&answer[i].name);
+            char *ipdup=strdup(ip);
+            // char *datadup=strdup(&answer[i].rdata);
+            char *cache = strcat(namedup, split);
+            cache = strcat(cache, ttl_cache);
+            cache = strcat(cache, class_cache);
+            cache = strcat(cache, "A ");
+            cache = strcat(cache, ipdup);
+            cache = strcat(cache, "\n");
+            fputs(cache, file);
+            fclose(file);
+        }
+        else if (answer[i].type == TYPE_MX)
+        {
+            ptr += 2; // 跳过preference
+            dns_parse_name(response, ptr, &answer[i].rdata, &len_r);
+            ptr += answer[i].data_len - 2;
+            printf("%s has a mail exchange name of %s\n", &answer[i].name, &answer[i].rdata);
+            char *namedup = strdup(&answer[i].name);
+            char *datadup = strdup(&answer[i].rdata);
+            char *cache = strcat(namedup, split);
+            cache = strcat(cache, ttl_cache);
+            cache = strcat(cache, class_cache);
+            cache = strcat(cache, "MX ");
+            cache = strcat(cache, datadup);
+            cache = strcat(cache, "\n");
+            FILE *tempFile = fopen("temp.txt", "w");
+            FILE *file = fopen(path, "a+");
+            char line[100];
+            if (tempFile == NULL)
+            {
+                printf("cannot open temp file\n");
+                exit(1);
+            }
+            // 写入要添加的行到临时文件中
+            fputs(cache, tempFile);
+            // 逐行将原始文件的内容写入临时文件中
+            while (fgets(line, sizeof(line), file) != NULL)
+            {
+                fputs(line, tempFile);
+            }
+            fclose(tempFile);
+            fclose(file);
+            // 删除原始文件
+            if (remove(path) != 0)
+            {
+                printf("cannot remove\n");
+                exit(1);
+            }
+            // 重命名临时文件为原始文件名
+            if (rename("temp.txt", path) != 0)
+            {
+                printf("无法重命名临时文件。\n");
+                exit(1);
+            }
+
+            // fputs(cache,file);
+        }
     }
 }

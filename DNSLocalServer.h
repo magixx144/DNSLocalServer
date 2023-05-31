@@ -13,6 +13,8 @@
 #include <time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #ifndef DNSCLIENT_DNSCLIENT_H
 #define DNSCLIENT_DNSCLIENT_H
@@ -81,3 +83,4 @@ int get_answerNum(char *path,char *domain, unsigned short type);
 char *DNS_tcp_root(char *domain, unsigned short type,int *offset,char *response,char *ip,char *next_response);
 int DNS_root_header_create(struct DNS_Header *header, char *domain);
 int DNS_root_build(struct DNS_Header *header, struct DNS_Query *query, char *request);
+void append_to_cache(char *response);
