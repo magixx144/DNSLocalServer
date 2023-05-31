@@ -11,5 +11,7 @@
 
 > On May 23, 2023 at 19:19, DNSLocalServer 1.0 was finally tested and can now be queried on local DNS server.
 
+> On May 29, 2023 at 17:04, DNSLocalServer 2.0 was finally tested and can query from root server.
+
 > I’m Magixx! You fuck with me, you fuckin’ with the best
 ![world](https://github.com/magixx144/DNSLocalServer/assets/110158476/1cce45fa-5569-4174-9ec3-469919ad90b9)
