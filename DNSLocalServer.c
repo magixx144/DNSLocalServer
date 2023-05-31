@@ -451,7 +451,7 @@ int DNS_udp()
     }
     struct sockaddr_in ser, cli;
     ser.sin_family = AF_INET;
-    ser.sin_port = htons(9945);
+    ser.sin_port = htons(DNS_SERVER_PORT);
     ser.sin_addr.s_addr = inet_addr(LOCAL_DNS_ADDRESS);
     // ser.sin_addr.s_addr =htonl(INADDR_ANY);
 
@@ -514,7 +514,7 @@ int tcp_socket_init(char *ip, char *request, int offset, char *response)
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in server_sockaddr; // 一般是储存地址和端口，用于信息的显示及存储作用
     server_sockaddr.sin_family = AF_INET;
-    server_sockaddr.sin_port = htons(9943); // 将一个无符号短整型数值转换为网络字节序，即大端模式
+    server_sockaddr.sin_port = htons(DNS_SERVER_PORT); // 将一个无符号短整型数值转换为网络字节序，即大端模式
     server_sockaddr.sin_addr.s_addr = inet_addr(ip);
 
     if (connect(sockfd, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr)) < 0)
@@ -536,7 +536,7 @@ char *DNS_tcp_root(char *domain, unsigned short type, int *offset, char *respons
 
     struct sockaddr_in server_sockaddr; // 一般是储存地址和端口，用于信息的显示及存储作用
     server_sockaddr.sin_family = AF_INET;
-    server_sockaddr.sin_port = htons(9944); // 将一个无符号短整型数值转换为网络字节序，即大端模式
+    server_sockaddr.sin_port = htons(DNS_SERVER_PORT); // 将一个无符号短整型数值转换为网络字节序，即大端模式
     server_sockaddr.sin_addr.s_addr = inet_addr(DNS_ROOT_ADDRESS);
 
     if (connect(sockfd, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr)) < 0)

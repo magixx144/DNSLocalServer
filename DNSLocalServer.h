@@ -26,7 +26,7 @@
 #define TYPE_MX 0x0f
 #define CLASS_IN 0x01
 #define MESSAGE_LEN 1024
-#define DNS_SERVER_PORT 9946
+#define DNS_SERVER_PORT 53
 #define DNS_SERVER_IP "8.8.8.8"
 #define LOCAL_DNS_ADDRESS "127.0.0.2"
 #define DNS_ROOT_ADDRESS "127.0.0.3"
